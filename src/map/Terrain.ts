@@ -21,6 +21,6 @@ export const TerrainConfigs: Record<TerrainType, TerrainConfig> = {
   [TerrainType.FOREST]: { color: '#3d7a2a', moveCost: 2, fertility: 0.4, passable: true },
   [TerrainType.HILLS]: { color: '#a89060', moveCost: 3, fertility: 0.3, passable: true },
   [TerrainType.MOUNTAINS]: { color: '#8a8a8a', moveCost: 999, fertility: 0, passable: false },
-  [TerrainType.FARMLAND]: { color: '#6b9e3a', moveCost: 1, fertility: 2.0, passable: true },
-  [TerrainType.URBAN]: { color: '#6b6b6b', moveCost: 1, fertility: 0, passable: true },
+  [TerrainType.FARMLAND]: { color: '#d4b830', moveCost: 1, fertility: 2.0, passable: true },
+  [TerrainType.URBAN]: { color: '#b0b0b0', moveCost: 1, fertility: 0, passable: true },
 };

@@ -28,3 +28,8 @@ Track mistakes made during development to avoid repeating them.
 **What happened:** Early filter implementations captured `Config.MAP_WIDTH/HEIGHT` at module scope. After a crop changed these values, the filters used stale dimensions, corrupting terrain data.
 **Fix:** All filters now read `tileMap.width` and `tileMap.height` from the tileMap instance parameter.
 **Lesson:** Never cache mutable config values at module scope. Always read from the authoritative source at call time.
+
+## 6. Country placement using theoretical lat/lon math instead of empirical map data
+**What happened:** Placed European countries at tile coordinates calculated from latitude/longitude formulas: `y = (90 - lat) * (1080/180)`. This assumed (a) the original 2160×1080 map covered exactly 90°N to 90°S, and (b) the user's crop only removed rows from the bottom. Both assumptions were wrong — the crop also trimmed the Arctic from the top, shifting all y coordinates. The PIL verification only checked if coordinates landed on "plains" terrain, which they did — but on African plains, not European ones.
+**Fix:** Scanned the map empirically for known geographic features (British Isles as isolated land mass, Mediterranean as water gap, vertical terrain profiles) to determine actual tile positions.
+**Lesson:** When working with a cropped/transformed map of unknown provenance, never rely on theoretical coordinate math. Always verify positions empirically by identifying recognizable geographic features in the actual image data. When verifying coordinates, check geographic *context* (what's nearby), not just terrain type.

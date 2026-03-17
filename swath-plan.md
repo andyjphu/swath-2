@@ -14,6 +14,7 @@
 - **Map**: World map (2160×784 tiles from heightmap/DEM), loaded from PNG bitmap at runtime
 - **Map Editor**: Separate page at `/editor/` for terrain painting, filters, crop, save/load
 - **Save**: localStorage + JSON file export/import
+- **Performance**: Dirty-flag rendering (rebuild buffers on tick, not per frame), velocity-based camera panning. Future: incremental tile updates, viewport-culled putImageData, Web Worker simulation (see 7A, 8B)
 
 ---
 
@@ -956,9 +957,11 @@ FILES TO IMPLEMENT:
    - Draws: hover tooltip, selection highlights, war front pulse, placement previews
    - Screen-space layer (not affected by camera transform for tooltips, but uses world-space for tile highlights)
 
-7. Update all rendering layers:
-   - Ensure smooth rendering at 60fps even with 800×600 tile map
-   - Profile and optimize: territory layer should use dirty-rect updates (only re-render changed tiles, not full buffer every tick)
+7. Update all rendering layers (OpenFront-inspired optimizations):
+   - Ensure smooth rendering at 60fps even with full world map
+   - **Incremental tile updates**: Instead of full buffer rebuild on dirty, systems (TerritorySystem, CityGrowthSystem) report changed tile indices. Layers patch only those pixels into existing ImageData. Fall back to full rebuild if >10% of tiles changed.
+   - **Viewport-culled putImageData**: Compute visible tile rect from camera, only `putImageData(imageData, dx, dy, dirtyX, dirtyY, dirtyW, dirtyH)` the visible portion instead of full buffer.
+   - **Precomputed LUT tables**: Add `refToX[]`, `refToY[]` arrays on TileMap to avoid `idx % W` and `Math.floor(idx / W)` in hot loops (territory expansion, border detection, BFS).
    - City layer: batch draw calls, use offscreen canvas for repeated sprite patterns
 
 TEST EXPECTATIONS:
@@ -978,7 +981,9 @@ TEST EXPECTATIONS:
 These are noted for future development, not part of the initial build:
 
 - **8A**: Procedural map generation (noise-based continents)
-- **8B**: Multiplayer via WebSocket (OpenFront-style server architecture)
+
+Far backlog (not actively planned):
+- Multiplayer via WebSocket (OpenFront-style deterministic lockstep — builds on existing worker separation)
 - **9A**: Sound design (ambient, SFX)
 - **9B**: Music (procedural or licensed medieval tracks)
 - **10A**: Steam/Electron wrapper for desktop release

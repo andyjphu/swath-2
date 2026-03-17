@@ -1,4 +1,6 @@
 import { Camera } from '../rendering/Camera';
+import { TileMap } from '../map/TileMap';
+import { Config } from '../core/Config';
 import { EventBus } from '../core/EventBus';
 
 export class InputHandler {
@@ -6,15 +8,24 @@ export class InputHandler {
   private lastX = 0;
   private lastY = 0;
 
+  // Click detection (distinguish from drag)
+  private mouseDownX = 0;
+  private mouseDownY = 0;
+  private mouseDownButton = -1;
+
   private keysDown = new Set<string>();
-  private panSpeed = 880; // pixels per second at zoom 1
+  private panSpeed = 880;
   private velX = 0;
   private velY = 0;
   private lastTime = 0;
-  private readonly accel = 25; // how fast velocity ramps up (snappier)
-  private readonly friction = 20; // how fast velocity decays (snappier)
+  private readonly accel = 25;
+  private readonly friction = 20;
 
-  constructor(private canvas: HTMLCanvasElement, private camera: Camera) {
+  constructor(
+    private canvas: HTMLCanvasElement,
+    private camera: Camera,
+    private tileMap?: TileMap,
+  ) {
     this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
     window.addEventListener('mousemove', (e) => this.onMouseMove(e));
     window.addEventListener('mouseup', (e) => this.onMouseUp(e));
@@ -33,7 +44,7 @@ export class InputHandler {
 
     this.lastTime = performance.now();
     const tick = (now: number) => {
-      const dt = Math.min((now - this.lastTime) / 1000, 0.05); // seconds, capped
+      const dt = Math.min((now - this.lastTime) / 1000, 0.05);
       this.lastTime = now;
 
       let targetX = 0, targetY = 0;
@@ -45,11 +56,9 @@ export class InputHandler {
       const speed = this.panSpeed * this.camera.zoom;
 
       if (targetX !== 0 || targetY !== 0) {
-        // Accelerate toward target
         this.velX += (targetX * speed - this.velX) * this.accel * dt;
         this.velY += (targetY * speed - this.velY) * this.accel * dt;
       } else {
-        // Decelerate
         this.velX *= Math.max(0, 1 - this.friction * dt);
         this.velY *= Math.max(0, 1 - this.friction * dt);
         if (Math.abs(this.velX) < 0.5) this.velX = 0;
@@ -66,7 +75,10 @@ export class InputHandler {
   }
 
   private onMouseDown(e: MouseEvent): void {
-    // Right-click or middle-click to pan
+    this.mouseDownX = e.clientX;
+    this.mouseDownY = e.clientY;
+    this.mouseDownButton = e.button;
+
     if (e.button === 1 || e.button === 2) {
       this.isPanning = true;
       this.lastX = e.clientX;
@@ -86,6 +98,35 @@ export class InputHandler {
   private onMouseUp(e: MouseEvent): void {
     if (e.button === 1 || e.button === 2) {
       this.isPanning = false;
+    }
+
+    // Left-click detection: only if mouse didn't move much (not a drag)
+    if (e.button === 0 && this.mouseDownButton === 0) {
+      const dx = e.clientX - this.mouseDownX;
+      const dy = e.clientY - this.mouseDownY;
+      if (dx * dx + dy * dy < 25) {
+        this.handleClick(e.clientX, e.clientY);
+      }
+    }
+    this.mouseDownButton = -1;
+  }
+
+  private handleClick(screenX: number, screenY: number): void {
+    if (!this.tileMap) return;
+
+    const world = this.camera.screenToWorld(screenX, screenY);
+    const tileX = Math.floor(world.x / Config.TILE_SIZE);
+    const tileY = Math.floor(world.y / Config.TILE_SIZE);
+
+    if (!this.tileMap.inBounds(tileX, tileY)) return;
+
+    const idx = tileY * this.tileMap.width + tileX;
+    const cityId = this.tileMap.cityId[idx];
+
+    if (cityId !== 0) {
+      EventBus.emit('city-clicked', { cityId, tileX, tileY });
+    } else {
+      EventBus.emit('tile-clicked', { tileX, tileY, owner: this.tileMap.owner[idx] });
     }
   }
 

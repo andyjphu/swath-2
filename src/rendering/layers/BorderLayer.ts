@@ -14,7 +14,11 @@ export class BorderLayer implements Layer {
   private lastH = 0;
   private dirty = true;
 
-  constructor(private tileMap: TileMap, private countries: Map<number, Country>) {}
+  constructor(
+    private tileMap: TileMap,
+    private countries: Map<number, Country>,
+    private playerId: number = 0,
+  ) {}
 
   markDirty(): void {
     this.dirty = true;
@@ -59,7 +63,6 @@ export class BorderLayer implements Layer {
     const H = this.tileMap.height;
     const data = this.imageData.data;
 
-    // Clear
     data.fill(0);
 
     for (let y = 0; y < H; y++) {
@@ -68,7 +71,6 @@ export class BorderLayer implements Layer {
         const owner = this.tileMap.owner[idx];
         if (owner === 0) continue;
 
-        // Check if any neighbor has a different owner (including 0)
         let isBorder = false;
         if (x > 0 && this.tileMap.owner[idx - 1] !== owner) isBorder = true;
         if (!isBorder && x < W - 1 && this.tileMap.owner[idx + 1] !== owner) isBorder = true;
@@ -77,14 +79,23 @@ export class BorderLayer implements Layer {
 
         if (isBorder) {
           const pxIdx = idx * 4;
-          // Darker version of country color
-          const country = this.countries.get(owner);
-          if (country) {
-            const hex = country.color;
-            data[pxIdx] = Math.floor(parseInt(hex.slice(1, 3), 16) * 0.4);
-            data[pxIdx + 1] = Math.floor(parseInt(hex.slice(3, 5), 16) * 0.4);
-            data[pxIdx + 2] = Math.floor(parseInt(hex.slice(5, 7), 16) * 0.4);
-            data[pxIdx + 3] = 200;
+
+          if (owner === this.playerId) {
+            // Player gets white borders
+            data[pxIdx] = 255;
+            data[pxIdx + 1] = 255;
+            data[pxIdx + 2] = 255;
+            data[pxIdx + 3] = 220;
+          } else {
+            // AI: darker version of country color (40%)
+            const country = this.countries.get(owner);
+            if (country) {
+              const hex = country.color;
+              data[pxIdx] = Math.floor(parseInt(hex.slice(1, 3), 16) * 0.4);
+              data[pxIdx + 1] = Math.floor(parseInt(hex.slice(3, 5), 16) * 0.4);
+              data[pxIdx + 2] = Math.floor(parseInt(hex.slice(5, 7), 16) * 0.4);
+              data[pxIdx + 3] = 200;
+            }
           }
         }
       }

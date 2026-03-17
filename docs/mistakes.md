@@ -33,3 +33,13 @@ Track mistakes made during development to avoid repeating them.
 **What happened:** Placed European countries at tile coordinates calculated from latitude/longitude formulas: `y = (90 - lat) * (1080/180)`. This assumed (a) the original 2160×1080 map covered exactly 90°N to 90°S, and (b) the user's crop only removed rows from the bottom. Both assumptions were wrong — the crop also trimmed the Arctic from the top, shifting all y coordinates. The PIL verification only checked if coordinates landed on "plains" terrain, which they did — but on African plains, not European ones.
 **Fix:** Scanned the map empirically for known geographic features (British Isles as isolated land mass, Mediterranean as water gap, vertical terrain profiles) to determine actual tile positions.
 **Lesson:** When working with a cropped/transformed map of unknown provenance, never rely on theoretical coordinate math. Always verify positions empirically by identifying recognizable geographic features in the actual image data. When verifying coordinates, check geographic *context* (what's nearby), not just terrain type.
+
+## 7. Rebuilding pixel buffers every frame instead of on change
+**What happened:** TerritoryLayer, BorderLayer, and CityLayer all rebuilt their entire 2160×784 pixel buffers (1.7M tiles + BFS) on every render frame at 60fps. This caused visible jitter and frame drops.
+**Fix:** Added dirty flag pattern to all three layers — only rebuild when `markDirty()` is called (once per game tick). Later moved simulation entirely to a Web Worker so even the tick computation doesn't block rendering.
+**Lesson:** Expensive buffer rebuilds should be gated by dirty flags, not run every frame. For tile-based games, consider Web Workers for simulation early — the main thread should only handle rendering and input.
+
+## 8. Smoothing-based camera panning felt sluggish
+**What happened:** First attempt at fixing arrow key panning used a fixed pixel step (12px/frame). Second attempt added velocity smoothing with low acceleration (8) and friction (6), which felt floaty and laggy.
+**Fix:** Increased acceleration to 25 and friction to 20 for near-instant response. Also scaled speed by camera zoom so panning feels consistent at all zoom levels.
+**Lesson:** For direct-input camera controls, minimize smoothing. High accel/friction values (snappy response) feel better than low values (floaty). Always scale pan speed by zoom.

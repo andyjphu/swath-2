@@ -47,7 +47,7 @@ export class CityGrowthSystem {
     const W = this.tileMap.width;
 
     // Spread threshold scales with tier
-    const spreadThreshold = city.tier === CityTier.VILLAGE ? 3 : city.tier === CityTier.TOWN ? 2 : 1.5; // TEMP: 10x faster for testing
+    const spreadThreshold = city.tier === CityTier.VILLAGE ? 30 : city.tier === CityTier.TOWN ? 20 : 15;
     const tilesPerPop = city.population / Math.max(1, city.getTotalTiles());
     if (tilesPerPop < spreadThreshold) return;
 

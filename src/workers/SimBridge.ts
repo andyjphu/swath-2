@@ -1,10 +1,15 @@
 import { TileMap } from '../map/TileMap';
-import { Country } from '../entities/Country';
+import { Country, TaxRate } from '../entities/Country';
+import { City } from '../entities/City';
+import { BuildingType } from '../entities/Building';
+import { CountryUpdate } from '../systems/EconomySystem';
+import { EventBus } from '../core/EventBus';
 
 export interface TileChanges {
   ownerChanges: number[];
   terrainChanges: number[];
   cityIdChanges: number[];
+  countryUpdates: CountryUpdate[];
 }
 
 type ChangeListener = (changes: TileChanges) => void;
@@ -18,6 +23,7 @@ export class SimBridge {
   constructor(
     private tileMap: TileMap,
     private countries: Map<number, Country>,
+    private cities: Map<number, City>,
   ) {
     this.worker = new Worker(
       new URL('./SimWorker.ts', import.meta.url),
@@ -29,7 +35,6 @@ export class SimBridge {
       switch (msg.type) {
         case 'ready':
           this.ready = true;
-          // Process any ticks that queued while initializing
           for (let i = 0; i < this.pendingTicks; i++) {
             this.worker.postMessage({ type: 'tick' });
           }
@@ -39,13 +44,15 @@ export class SimBridge {
         case 'tick-result':
           this.applyChanges(msg);
           break;
+
+        case 'build-result':
+          EventBus.emit('build-result', msg);
+          break;
       }
     };
   }
 
-  /** Send initial state to the worker */
   init(): void {
-    // Serialize countries and cities to plain objects
     const countriesData = [];
     for (const country of this.countries.values()) {
       countriesData.push({
@@ -82,7 +89,6 @@ export class SimBridge {
     });
   }
 
-  /** Request one simulation tick */
   tick(): void {
     if (!this.ready) {
       this.pendingTicks++;
@@ -91,31 +97,48 @@ export class SimBridge {
     this.worker.postMessage({ type: 'tick' });
   }
 
-  /** Register a listener for tile changes */
   onChange(listener: ChangeListener): void {
     this.listeners.push(listener);
   }
 
-  /** Apply changes from worker to the main thread's TileMap */
-  private applyChanges(msg: TileChanges): void {
-    const { ownerChanges, terrainChanges, cityIdChanges } = msg;
+  sendBuild(cityId: number, buildingType: BuildingType): void {
+    this.worker.postMessage({ type: 'build', cityId, buildingType });
+  }
 
-    // Apply owner changes
+  sendSetTax(countryId: number, taxRate: TaxRate): void {
+    // Update main thread immediately for responsive UI
+    const country = this.countries.get(countryId);
+    if (country) country.taxRate = taxRate;
+    this.worker.postMessage({ type: 'set-tax', countryId, taxRate });
+  }
+
+  private applyChanges(msg: TileChanges): void {
+    const { ownerChanges, terrainChanges, cityIdChanges, countryUpdates } = msg;
+
     for (let i = 0; i < ownerChanges.length; i += 2) {
       this.tileMap.owner[ownerChanges[i]] = ownerChanges[i + 1];
     }
-
-    // Apply terrain changes
     for (let i = 0; i < terrainChanges.length; i += 2) {
       this.tileMap.terrain[terrainChanges[i]] = terrainChanges[i + 1];
     }
-
-    // Apply cityId changes
     for (let i = 0; i < cityIdChanges.length; i += 2) {
       this.tileMap.cityId[cityIdChanges[i]] = cityIdChanges[i + 1];
     }
 
-    // Notify listeners
+    // Sync entity state from worker
+    if (countryUpdates) {
+      for (const cu of countryUpdates) {
+        const country = this.countries.get(cu.countryId);
+        if (!country) continue;
+        Object.assign(country.resources, cu.resources);
+        country.stability = cu.stability;
+        for (const cityUpdate of cu.cities) {
+          const city = this.cities.get(cityUpdate.cityId);
+          if (city) city.population = cityUpdate.population;
+        }
+      }
+    }
+
     for (const listener of this.listeners) {
       listener(msg);
     }

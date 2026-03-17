@@ -16,6 +16,8 @@ import { City } from './entities/City';
 import { TerritorySystem } from './systems/TerritorySystem';
 import { CityGrowthSystem } from './systems/CityGrowthSystem';
 import { SimBridge } from './workers/SimBridge';
+import { TopBar } from './ui/TopBar';
+import { CityPanel } from './ui/CityPanel';
 import { EventBus } from './core/EventBus';
 import { TerrainType } from './map/Terrain';
 
@@ -24,14 +26,12 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 const state = new GameState();
 const camera = new Camera();
 const renderer = new GameRenderer(canvas, camera, state);
-new InputHandler(canvas, camera);
 const loop = new GameLoop(state);
 
 const tileMap = new TileMap();
 const rivers = new RiverSystem();
 
 // European country starting positions (approximate tile coords on 2160×784 map)
-// These correspond to real-world locations on the world map
 const COUNTRY_DEFS = [
   { name: 'Kingdom of France', color: '#2980b9', x: 1092, y: 162, isPlayer: true },
   { name: 'Kingdom of England', color: '#c0392b', x: 1078, y: 128, isPlayer: false },
@@ -51,11 +51,10 @@ const CITY_NAMES: Record<string, string> = {
 /** Find the nearest passable plains tile to the target position */
 function findStartPosition(tileMap: TileMap, targetX: number, targetY: number): { x: number; y: number } {
   const W = tileMap.width;
-  // Spiral search from target
   for (let r = 0; r < 50; r++) {
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
-        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue; // Only perimeter
+        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
         const x = targetX + dx;
         const y = targetY + dy;
         if (!tileMap.inBounds(x, y)) continue;
@@ -66,7 +65,7 @@ function findStartPosition(tileMap: TileMap, targetX: number, targetY: number): 
       }
     }
   }
-  return { x: targetX, y: targetY }; // Fallback
+  return { x: targetX, y: targetY };
 }
 
 async function init() {
@@ -83,7 +82,6 @@ async function init() {
 
     if (def.isPlayer) state.playerId = countryId;
 
-    // Find a valid start position near the target coordinates
     const pos = findStartPosition(tileMap, def.x, def.y);
     const cityName = CITY_NAMES[def.name] || def.name;
     const city = new City(0, cityName, countryId, pos.x, pos.y);
@@ -94,7 +92,6 @@ async function init() {
   const territorySystem = new TerritorySystem(tileMap, state.countries);
   const cityGrowthSystem = new CityGrowthSystem(tileMap, state.countries);
 
-  // Initialize city tiles on the map
   for (const country of state.countries.values()) {
     for (const city of country.cities) {
       cityGrowthSystem.initCity(city, country);
@@ -109,20 +106,22 @@ async function init() {
   camera.panX = window.innerWidth / 2 - europeX * camera.zoom;
   camera.panY = window.innerHeight / 2 - europeY * camera.zoom;
 
-  // Add rendering layers in order
+  // Rendering layers
   const terrainLayer = new TerrainLayer(tileMap, rivers);
   const territoryLayer = new TerritoryLayer(tileMap, state.countries);
-  const borderLayer = new BorderLayer(tileMap, state.countries);
+  const borderLayer = new BorderLayer(tileMap, state.countries, state.playerId);
   const cityLayer = new CityLayer(tileMap, state.countries);
   renderer.addLayer(terrainLayer);
   renderer.addLayer(territoryLayer);
   renderer.addLayer(borderLayer);
   renderer.addLayer(cityLayer);
 
-  // Create worker bridge for simulation
-  const simBridge = new SimBridge(tileMap, state.countries);
+  // Input (needs tileMap for click detection)
+  new InputHandler(canvas, camera, tileMap);
 
-  // When worker sends back changes, mark layers dirty
+  // Worker bridge for simulation
+  const simBridge = new SimBridge(tileMap, state.countries, state.cities);
+
   simBridge.onChange((changes) => {
     if (changes.ownerChanges.length > 0) {
       territoryLayer.markDirty();
@@ -138,10 +137,13 @@ async function init() {
     }
   });
 
-  // Send initial state to worker
   simBridge.init();
 
-  // On tick, tell the worker to simulate (non-blocking)
+  // UI
+  new TopBar(state, loop);
+  new CityPanel(state, simBridge);
+
+  // On tick, tell the worker to simulate
   EventBus.on<{ tick: number }>('tick', () => {
     simBridge.tick();
   });

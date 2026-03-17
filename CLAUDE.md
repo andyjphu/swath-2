@@ -22,15 +22,18 @@ A single-player browser-based territory conquest game. Start from medieval Europ
 
 ## Key Patterns
 - **Config.MAP_WIDTH/MAP_HEIGHT are mutable** — they change on map crop/load. Always read from `tileMap.width`/`tileMap.height` for current dimensions, not Config globals.
-- **TerrainLayer** uses a dirty flag — call `markDirty()` after terrain changes.
+- **Dirty flag rendering** — All pixel-buffer layers (TerrainLayer, TerritoryLayer, BorderLayer, CityLayer) use `markDirty()`. Only rebuild buffers when dirty, not every frame.
+- **Web Worker simulation** — Game systems (TerritorySystem, CityGrowthSystem) run in a Web Worker (`SimWorker.ts`). The worker sends tile diffs back to the main thread via `SimBridge.ts`. Main thread applies diffs and marks layers dirty. Rendering never blocks on simulation.
+- **Change tracking** — Systems track tile modifications via `consumeChanges()` returning compact `[idx, value, ...]` arrays.
 - **RiverSystem** indexes by `y * Config.MAP_WIDTH + x` — breaks after crop if not cleared.
 - Terrain types: WATER=0, PLAINS=1, FOREST=2, HILLS=3, MOUNTAINS=4, FARMLAND=5, URBAN=6
 
 ## Current State
-- Prompts 1A and 1B are complete (scaffold, map, terrain rendering)
+- Prompts 1A, 1B, and 2A are complete (scaffold, map, terrain, countries, territory, cities)
 - Map editor is complete and available at `/editor/`
 - Base world map is `public/world-1.0.5.png` (2160x784 tiles)
-- Next: Prompt 2A — Countries, Cities & Territory System
+- 5 European countries with territory expansion, city growth, border rendering
+- Next: Prompt 2B — Economy, Tax System & Resource UI
 
 ## Build & Run
 ```bash

@@ -27,14 +27,14 @@ export class CityLayer implements Layer {
       cached = [200, 200, 200];
     } else {
       const hex = country.color;
-      // Lighter version: blend toward white (70% white, 30% country color)
+      // 80% white + 20% country base color
       const r = parseInt(hex.slice(1, 3), 16);
       const g = parseInt(hex.slice(3, 5), 16);
       const b = parseInt(hex.slice(5, 7), 16);
       cached = [
-        Math.floor(r * 0.3 + 255 * 0.7),
-        Math.floor(g * 0.3 + 255 * 0.7),
-        Math.floor(b * 0.3 + 255 * 0.7),
+        Math.floor(255 * 0.8 + r * 0.2),
+        Math.floor(255 * 0.8 + g * 0.2),
+        Math.floor(255 * 0.8 + b * 0.2),
       ];
     }
     this.colorCache.set(countryId, cached);

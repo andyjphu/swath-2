@@ -20,13 +20,13 @@ function sampleImage(img: HTMLImageElement, w: number, h: number): ImageData {
   return ctx.getImageData(0, 0, w, h);
 }
 
-export async function generateEuropeMap(tileMap: TileMap, _rivers: RiverSystem): Promise<void> {
+export async function generateWorldMap(tileMap: TileMap, _rivers: RiverSystem): Promise<void> {
   const W = Config.MAP_WIDTH;
   const H = Config.MAP_HEIGHT;
 
   const [reliefImg, demImg] = await Promise.all([
-    loadImage('/heightmap.png'),
-    loadImage('/earthbump.jpg'),
+    loadImage('/editor/assets/heightmap.png'),
+    loadImage('/editor/assets/earthbump.jpg'),
   ]);
 
   const reliefData = sampleImage(reliefImg, W, H);

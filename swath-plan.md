@@ -2,7 +2,7 @@
 
 ## Game Summary
 
-**Swath** is a single-player browser-based territory conquest game set in late medieval Europe. Players expand from a small settlement into a continental power through OpenFront-style tile expansion, citizen-driven economic growth, mission-based technological progression (peasant huts → mercantile hubs → industrial powerhouses with musketeers), and a front-based war system with stability-limited annexation. Target session length: ~30 minutes. Target platform: itch.io / Steam (via Electron wrapper later).
+**Swath** is a single-player browser-based territory conquest game starting in medieval Europe and expanding to world conquest. Players expand from a small settlement through OpenFront-style tile expansion, citizen-driven economic growth, mission-based technological progression (peasant huts → mercantile hubs → industrial powerhouses with musketeers), and a front-based war system with stability-limited annexation. The game uses a real-world map derived from heightmap/DEM data. AI European countries are the initial opponents; world expansion comes later. Target session length: ~30 minutes. Target platform: itch.io / Steam (via Electron wrapper later).
 
 ---
 
@@ -11,7 +11,8 @@
 - **Stack**: Vite + TypeScript, multi-file project
 - **Rendering**: HTML5 Canvas 2D, layered renderer (OpenFront pattern)
 - **Simulation**: Client-side tick-based (200ms ticks), speed controls (pause/1×/2×/5×)
-- **Map**: Fixed Europe map, square tile grid
+- **Map**: World map (2160×784 tiles from heightmap/DEM), loaded from PNG bitmap at runtime
+- **Map Editor**: Separate page at `/editor/` for terrain painting, filters, crop, save/load
 - **Save**: localStorage + JSON file export/import
 
 ---
@@ -33,11 +34,13 @@ swath/
 │   │   ├── EventBus.ts              # Pub/sub for decoupled systems
 │   │   └── SaveManager.ts           # Serialize/deserialize game state
 │   ├── map/
-│   │   ├── TileMap.ts               # Typed arrays for tile data
+│   │   ├── TileMap.ts               # Typed arrays for tile data (with crop support)
 │   │   ├── Terrain.ts               # Terrain types, costs, fertility
 │   │   ├── ProvinceMap.ts           # Historical province overlay
 │   │   ├── RiverSystem.ts           # River tiles + fertility bonus
-│   │   └── EuropeMapData.ts         # Fixed Europe heightmap + terrain
+│   │   ├── WorldMapGen.ts           # Generate terrain from heightmap + DEM (editor only)
+│   │   ├── MapLoader.ts             # Load terrain from saved PNG bitmap
+│   │   └── MapFilters.ts            # Terrain smoothing, island removal, etc.
 │   ├── entities/
 │   │   ├── Country.ts               # Player/AI nation state
 │   │   ├── City.ts                  # Village/Town/Metropolis + buildings
@@ -94,7 +97,7 @@ Each prompt below is designed to be given to Claude Code (or a Claude chat sessi
 
 ---
 
-### Prompt 1A: Project Scaffold + Core Loop
+### Prompt 1A: Project Scaffold + Core Loop ✅ COMPLETE
 
 **Goal**: Vite + TS project, game loop, event bus, config. Opens in browser with a blank canvas and working camera.
 
@@ -174,7 +177,7 @@ IMPORTANT:
 
 ---
 
-### Prompt 1B: Tile Map + Europe Terrain
+### Prompt 1B: Tile Map + World Terrain ✅ COMPLETE
 
 **Goal**: Tile data structure with typed arrays, Europe heightmap generation, terrain rendering layer.
 
@@ -258,7 +261,7 @@ IMPORTANT:
 
 ---
 
-### Prompt 2A: Countries, Cities & Territory System
+### Prompt 2A: Countries, Cities & Territory System ← NEXT
 
 **Goal**: Country entities, city placement, territory expansion, territory color overlay.
 
@@ -364,8 +367,9 @@ FILES TO IMPLEMENT:
    - Only draw at edges where ownership changes
 
 10. Update src/main.ts:
+    - Map is loaded from public/world-1.0.5.png via MapLoader (already done)
     - Create 1 player country + 4 AI countries
-    - Place each with a starting village at spread-out positions on the Europe map (on plains, away from water)
+    - Place each with a starting village in the European region of the world map (on plains, away from water)
     - Country names: pick from historical European nations
     - Player colors: #c0392b (player), #2980b9, #27ae60, #f39c12, #8e44ad
     - Territory expansion should be visibly happening each tick

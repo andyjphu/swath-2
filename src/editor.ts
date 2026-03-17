@@ -6,8 +6,9 @@ import { InputHandler } from './input/InputHandler';
 import { Config } from './core/Config';
 import { TileMap } from './map/TileMap';
 import { RiverSystem } from './map/RiverSystem';
+import { generateWorldMap } from './map/WorldMapGen';
 import { TerrainLayer } from './rendering/layers/TerrainLayer';
-import { loadMapFromPng } from './map/MapLoader';
+import { MapEditor } from './ui/MapEditor';
 
 // Init core
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -17,13 +18,14 @@ const renderer = new GameRenderer(canvas, camera, state);
 new InputHandler(canvas, camera);
 const loop = new GameLoop(state);
 
+// Generate world map
 const tileMap = new TileMap();
 const rivers = new RiverSystem();
 
 async function init() {
-  console.log('Loading world map...');
-  await loadMapFromPng(tileMap, '/world-1.0.5.png');
-  console.log(`Map loaded: ${tileMap.width}x${tileMap.height}`);
+  console.log('Generating world map...');
+  await generateWorldMap(tileMap, rivers);
+  console.log('Map generated.');
 
   // Center camera on map
   camera.zoom = 0.5;
@@ -33,6 +35,11 @@ async function init() {
   // Add layers
   const terrainLayer = new TerrainLayer(tileMap, rivers);
   renderer.addLayer(terrainLayer);
+
+  // Map editor
+  new MapEditor(tileMap, rivers, camera, canvas, () => {
+    terrainLayer.markDirty();
+  });
 
   loop.start();
 }
